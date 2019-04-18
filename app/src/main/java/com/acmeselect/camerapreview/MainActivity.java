@@ -15,9 +15,7 @@ import android.widget.Toast;
 public class MainActivity extends AppCompatActivity {
 
     private Button tvBtn;
-    private FrameLayout flContainer;
     private CameraPreview cameraPreview;
-    private Camera camera;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,12 +23,20 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         tvBtn = (Button) findViewById(R.id.tv_btn);
-        flContainer = (FrameLayout) findViewById(R.id.fl_container);
+
+        cameraPreview = (CameraPreview) findViewById(R.id.camera_preview);
 
         tvBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 openCameraWithPermissions();
+            }
+        });
+
+        findViewById(R.id.tv_btn1).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cameraPreview.stopPreview();
             }
         });
     }
@@ -54,8 +60,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openCamera() {
-        camera = Camera.open();
-        cameraPreview = new CameraPreview(this, camera);
-        flContainer.addView(cameraPreview);
+
+        cameraPreview.startPreview();
     }
 }

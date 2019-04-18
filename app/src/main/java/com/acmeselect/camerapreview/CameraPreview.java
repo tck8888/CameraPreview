@@ -1,10 +1,18 @@
 package com.acmeselect.camerapreview;
 
+import android.app.Activity;
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.hardware.Camera;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 
 import java.io.IOException;
 import java.util.List;
@@ -17,101 +25,140 @@ import java.util.List;
  * @author tck
  * @version 1.0
  */
-public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
+public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback {
 
     private String TAG = "CameraPreview";
 
-    private SurfaceHolder mHolder;
-    private Camera mCamera;
+    private Context context;
+    private Camera camera;
+    private SurfaceView surfaceView;
+    private SurfaceHolder holder;
 
-    public CameraPreview(Context context, Camera camera) {
-        super(context);
-        mCamera = camera;
+    private boolean isCameraPreview = false;
+    private ImageView ivCover;
 
-        // Install a SurfaceHolder.Callback so we get notified when the
-        // underlying surface is created and destroyed.
-        mHolder = getHolder();
-        mHolder.addCallback(this);
-        // deprecated setting, but required on Android versions prior to 3.0
-        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+    public CameraPreview(@NonNull Context context) {
+        this(context, null);
     }
 
+    public CameraPreview(@NonNull Context context, @Nullable AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public CameraPreview(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        this.context = context;
+
+        surfaceView = new SurfaceView(context);
+        addView(surfaceView, new FrameLayout.LayoutParams(-1, -1));
+
+        surfaceView.getHolder().addCallback(this);
+        surfaceView.setZOrderOnTop(true);
+        surfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+    }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        // The Surface has been created, now tell the camera where to draw the preview.
+        this.holder = holder;
         try {
-            mCamera.setPreviewDisplay(holder);
-            Camera.Parameters parameters = mCamera.getParameters();//获取各项参数
-            Camera.Size previewSize = findFitPreResolution(parameters);
-            parameters.setPreviewSize(previewSize.width, previewSize.height);// 设置预览大小
-
-            parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
-            mCamera.setParameters(parameters);
-            mCamera.startPreview();
+            initCameraPreview();
+            camera.setPreviewDisplay(holder);
 
         } catch (IOException e) {
             Log.d(TAG, "Error setting camera preview: " + e.getMessage());
         }
     }
 
-    /**
-     * 返回合适的预览尺寸参数
-     *
-     * @param cameraParameters
-     * @return
-     */
-    private Camera.Size findFitPreResolution(Camera.Parameters cameraParameters){
-        List<Camera.Size> supportedPicResolutions = cameraParameters.getSupportedPreviewSizes();
-        Camera.Size resultSize = null;
-        for (Camera.Size size : supportedPicResolutions) {
-            if (size.width <= 1080) {
-                if (resultSize == null) {
-                    resultSize = size;
-                } else if (size.width > resultSize.width) {
-                    resultSize = size;
-                }
-            }
-        }
-        if (resultSize == null) {
-            return supportedPicResolutions.get(0);
-        }
-        return resultSize;
-    }
-
-
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        // If your preview can change or rotate, take care of those events here.
-        // Make sure to stop the preview before resizing or reformatting it.
-
-        if (mHolder.getSurface() == null) {
-            // preview surface does not exist
-            return;
-        }
-
-        // stop preview before making changes
-        try {
-            mCamera.stopPreview();
-        } catch (Exception e) {
-            // ignore: tried to stop a non-existent preview
-        }
-
-        // set preview size and make any resize, rotate or
-        // reformatting changes here
-
-        // start preview with new settings
-        try {
-            mCamera.setPreviewDisplay(mHolder);
-            mCamera.startPreview();
-
-        } catch (Exception e) {
-            Log.d(TAG, "Error starting camera preview: " + e.getMessage());
-        }
+    public void surfaceChanged(SurfaceHolder holder,
+                               int format,
+                               int width,
+                               int height) {
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
 
+    }
+
+    private void initCameraPreview() {
+        camera = Camera.open();
+        camera.setDisplayOrientation(90);
+        Camera.Parameters parameters = camera.getParameters();
+        Camera.Size bestSize = getBestSize(getWidth(), getHeight(), parameters.getSupportedPreviewSizes());
+        if (bestSize == null) {
+            parameters.setPreviewSize(getWidth(), getWidth());
+        } else {
+            parameters.setPreviewSize(bestSize.width, bestSize.height);
+        }
+        parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+        camera.setParameters(parameters);
+
+    }
+
+    public void startPreview() {
+        if (camera != null && holder != null) {
+            isCameraPreview = true;
+            camera.startPreview();
+            camera.cancelAutoFocus();
+        }
+    }
+
+    public void stopPreview() {
+        if (camera != null) {
+            if (isCameraPreview) {
+                isCameraPreview = false;
+                camera.stopPreview();
+            }
+        }
+    }
+
+    /**
+     * 销毁摄像头
+     */
+    public void destroyCamera() {
+        if (camera != null) {
+            isCameraPreview = false;
+            camera.stopPreview();
+            camera.release();//释放相机
+            camera = null;
+        }
+    }
+
+    public void setCover(String imageUrl) {
+        if (ivCover == null) {
+            ivCover = new ImageView(context);
+            ivCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            addView(ivCover, new FrameLayout.LayoutParams(-1, -1));
+        }
+        //设置封面图
+
+    }
+
+
+    private Camera.Size getBestSize(Integer targetWidth,
+                                    Integer targetHeight,
+                                    List<Camera.Size> supportedPreviewSizes) {
+        double targetRatio = targetHeight / (targetWidth + 0.0d);
+        double minDiff = targetRatio;
+        Camera.Size bestSize = null;
+        for (Camera.Size size : supportedPreviewSizes) {
+            if (size.width == targetHeight && size.height == targetWidth) {
+                bestSize = size;
+                break;
+            }
+
+            double supportedRatio = (size.width + 0.0d) / size.height;
+            if (Math.abs(supportedRatio - targetRatio) < minDiff) {
+                minDiff = Math.abs(supportedRatio - targetRatio);
+                bestSize = size;
+            }
+        }
+        Log.d(TAG, "targetWidth=" + targetWidth + "targetHeight=" + targetHeight + "targetRatio=" + targetRatio);
+        if (bestSize != null) {
+            Log.d(TAG, "bestSize.width=" + bestSize.width + "bestSize.height=" + bestSize.height);
+
+        }
+        return bestSize;
     }
 }
