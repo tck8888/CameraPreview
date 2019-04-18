@@ -23,6 +23,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="关闭相机预览" />
+
+        <Button
+            android:id="@+id/tv_btn2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="获取相册第一张图片" />
     </LinearLayout>
 
 

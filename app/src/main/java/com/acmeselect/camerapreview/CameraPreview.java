@@ -2,10 +2,16 @@ package com.acmeselect.camerapreview;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
 import android.hardware.Camera;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
@@ -14,6 +20,7 @@ import android.view.SurfaceView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -59,6 +66,7 @@ public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        Log.d(TAG, "surfaceCreated: ");
         this.holder = holder;
         try {
             initCameraPreview();
@@ -78,9 +86,12 @@ public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-
+        Log.d(TAG, "surfaceDestroyed: ");
     }
 
+    /**
+     * 设置相机的参数
+     */
     private void initCameraPreview() {
         camera = Camera.open();
         camera.setDisplayOrientation(90);
@@ -96,6 +107,9 @@ public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback
 
     }
 
+    /**
+     * 开始预览
+     */
     public void startPreview() {
         if (camera != null && holder != null) {
             isCameraPreview = true;
@@ -104,6 +118,9 @@ public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback
         }
     }
 
+    /**
+     * 停止预览
+     */
     public void stopPreview() {
         if (camera != null) {
             if (isCameraPreview) {
@@ -125,17 +142,56 @@ public class CameraPreview extends FrameLayout implements SurfaceHolder.Callback
         }
     }
 
+    /**
+     * 设置覆盖图
+     *
+     * @param imageUrl
+     */
     public void setCover(String imageUrl) {
+        destroyCamera();
+        ClearDraw();
         if (ivCover == null) {
             ivCover = new ImageView(context);
             ivCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
             addView(ivCover, new FrameLayout.LayoutParams(-1, -1));
         }
         //设置封面图
+        Bitmap bitmap = null;
+        File file = new File(imageUrl);
+        if (file.exists()) {
+            bitmap = BitmapFactory.decodeFile(imageUrl);
+        }
+        ivCover.setImageBitmap(bitmap);
+    }
 
+    /**
+     * 清空画布
+     */
+    private void ClearDraw() {
+        if (holder != null) {
+            Canvas canvas = null;
+            try {
+                canvas = holder.lockCanvas(null);
+                canvas.drawColor(Color.WHITE);
+                canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.SRC);
+            } catch (Exception e) {
+            } finally {
+                if (canvas != null) {
+                    holder.unlockCanvasAndPost(canvas);
+                }
+            }
+        }
     }
 
 
+    /**
+     * 获取合适的相机尺寸
+     *
+     * @param targetWidth
+     * @param targetHeight
+     * @param supportedPreviewSizes
+     * @return
+     */
     private Camera.Size getBestSize(Integer targetWidth,
                                     Integer targetHeight,
                                     List<Camera.Size> supportedPreviewSizes) {
